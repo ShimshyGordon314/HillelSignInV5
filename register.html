@@ -210,20 +210,21 @@
       }
 
       async function sendEmail(firstName, lastName, email, qrCodeData) {
-      const sharedUrl = `https://ShimshyGordon314.github.io/HillelSignInV5/display.html?data=${encodeURIComponent(qrCodeData)}`;
-        try {
-          await emailjs.send("service_yv3ovn3", "template_o6dzuze", {
-            firstName,
-            lastName,
-            email,
-            qrCode: sharedUrl,
-          });
-          return true;
-        } catch (error) {
-          console.error("Error sending email:", error);
-          return false;
+            const sharedUrl = `https://ShimshyGordon314.github.io/HillelSignInV5/display.html?data=${encodeURIComponent(qrCodeData)}`;
+
+            try {
+                await emailjs.send("service_yv3ovn3", "template_o6dzuze", {
+                    firstName: firstName,
+                    lastName: lastName,
+                    email: email,
+                    qrCodeUrl: sharedUrl
+                });
+                return true;
+            } catch (error) {
+                console.error("Error sending email:", error);
+                return false;
+            }
         }
-      }
 
       async function logSignIn(firstName, lastName, email) {
         const logEntry = {
