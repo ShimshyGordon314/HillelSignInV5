@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>QR Code Registration</title>
+    <!-- QRCode and EmailJS libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+      rel="stylesheet"
+    />
+    <style>
+      /* CSS (same as your original register.html) */
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      }
+      body {
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        min-height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 20px;
+      }
+      .container {
+        background: white;
+        padding: 30px;
+        border-radius: 15px;
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+        width: 100%;
+        max-width: 500px;
+      }
+      .back-button {
+        display: block;
+        margin-bottom: 20px;
+        color: #2c3e50;
+        text-decoration: none;
+        font-size: 16px;
+        transition: color 0.3s ease;
+      }
+      .back-button:hover {
+        color: #3498db;
+      }
+      h1 {
+        color: #2c3e50;
+        margin-bottom: 25px;
+        text-align: center;
+        font-size: 28px;
+      }
+      .input-group {
+        margin-bottom: 20px;
+      }
+      label {
+        display: block;
+        margin-bottom: 8px;
+        color: #34495e;
+        font-weight: 500;
+      }
+      input {
+        width: 100%;
+        padding: 12px;
+        border: 2px solid #e0e0e0;
+        border-radius: 8px;
+        font-size: 16px;
+        transition: border-color 0.3s ease;
+      }
+      input:focus {
+        outline: none;
+        border-color: #3498db;
+      }
+      .checkbox-group {
+        display: flex;
+        align-items: center;
+        margin-bottom: 20px;
+        padding: 12px;
+        background: #f8f9fa;
+        border-radius: 8px;
+      }
+      .checkbox-group input[type="checkbox"] {
+        width: auto;
+        margin-right: 10px;
+      }
+      .checkbox-group label {
+        margin-bottom: 0;
+        font-size: 0.95em;
+        line-height: 1.4;
+      }
+      button {
+        width: 100%;
+        padding: 12px;
+        background: #3498db;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-size: 16px;
+        cursor: pointer;
+        transition: background 0.3s ease;
+      }
+      button:hover {
+        background: #2980b9;
+      }
+      #statusMessage {
+        margin-top: 15px;
+        padding: 10px;
+        border-radius: 8px;
+        text-align: center;
+      }
+      .success {
+        background: #d4edda;
+        color: #155724;
+      }
+      .error {
+        background: #f8d7da;
+        color: #721c24;
+      }
+      .icon {
+        margin-right: 8px;
+      }
+      @media (max-width: 480px) {
+        .container {
+          padding: 20px;
+        }
+        h1 {
+          font-size: 24px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <a href="index.html" class="back-button">
+        <i class="fas fa-arrow-left icon"></i>Back to Scanner
+      </a>
+      <div id="formSection">
+        <h1><i class="fas fa-qrcode icon"></i>QR Code Registration</h1>
+        <form id="signInForm">
+          <div class="input-group">
+            <label for="firstName">First Name</label>
+            <input type="text" id="firstName" name="firstName" required />
+          </div>
+          <div class="input-group">
+            <label for="lastName">Last Name</label>
+            <input type="text" id="lastName" name="lastName" required />
+          </div>
+          <div class="input-group">
+            <label for="email">Email Address</label>
+            <input type="email" id="email" name="email" required />
+          </div>
+          <div class="checkbox-group">
+            <input type="checkbox" id="oneTimeSignIn" name="oneTimeSignIn" />
+            <label for="oneTimeSignIn"
+              >Quick sign-in (logs attendance without sending QR code for future
+              use)</label
+            >
+          </div>
+          <button type="submit" id="submitButton">
+            <i class="fas fa-paper-plane icon"></i>Complete Registration
+          </button>
+        </form>
+        <p id="statusMessage"></p>
+      </div>
+    </div>
+
+    <script type="module">
+      import { logSignInToFirebase } from "./firebase-log.js";
+
+      import {
+        getAuth,
+        signInAnonymously,
+        onAuthStateChanged,
+      } from "https://www.gstatic.com/firebasejs/10.11.1/firebase-auth.js";
+
+      import { auth } from "./firebase-init.js";
+
+      signInAnonymously(auth)
+        .then(() => {
+          console.log("Signed in anonymously:", auth.currentUser);
+        })
+        .catch((error) => {
+          console.error("Anonymous sign-in failed:", error);
+        });
+
+      onAuthStateChanged(auth, (user) => {
+        if (user) {
+        } else {
+          console.error("No authenticated user.");
+        }
+        console.log("Current user:", auth.currentUser);
+        console.log("User ID:", auth.currentUser?.uid);
+        console.log("Is Anonymous:", auth.currentUser?.isAnonymous);
+        console.log("Provider Data:", auth.currentUser?.providerData);
+
+      });
+
+      emailjs.init("DKgzBUQVYTgBAgIzr");
+
+      async function generateQRCode(data) {
+        const canvas = document.createElement("canvas");
+        await QRCode.toCanvas(canvas, data, {
+          width: 256,
+          margin: 2,
+          color: { dark: "#2c3e50", light: "#ffffff" },
+        });
+        return canvas.toDataURL();
+      }
+
+      async function sendEmail(firstName, lastName, email, qrCodeData) {
+        const sharedUrl = `https://organic-raspy-list.glitch.me/display.html?data=${encodeURIComponent(
+          qrCodeData
+        )}`;
+        try {
+          await emailjs.send("service_yv3ovn3", "template_o6dzuze", {
+            firstName,
+            lastName,
+            email,
+            qrCode: sharedUrl,
+          });
+          return true;
+        } catch (error) {
+          console.error("Error sending email:", error);
+          return false;
+        }
+      }
+
+      async function logSignIn(firstName, lastName, email) {
+        const logEntry = {
+          timestamp: Date.now(),
+          name: `${firstName} ${lastName}`,
+          email: email,
+        };
+        return await logSignInToFirebase(logEntry);
+      }
+
+      const signInForm = document.getElementById("signInForm");
+      const statusMsg = document.getElementById("statusMessage");
+
+      signInForm.addEventListener("submit", async function (event) {
+        event.preventDefault();
+        const firstName = document.getElementById("firstName").value;
+        const lastName = document.getElementById("lastName").value;
+        const email = document.getElementById("email").value;
+        const isOneTimeSignIn =
+          document.getElementById("oneTimeSignIn").checked;
+        const qrCodeData = `Name: ${firstName} ${lastName}\nEmail: ${email}`;
+
+        if (isOneTimeSignIn) {
+          const logged = await logSignIn(firstName, lastName, email);
+          if (logged) {
+            statusMsg.textContent = "✓ Sign-in successful!";
+            statusMsg.className = "success";
+            setTimeout(() => {
+              window.location.href = "index.html";
+            }, 2000);
+          } else {
+            statusMsg.textContent = "✗ Duplicate sign-in detected.";
+            statusMsg.className = "error";
+          }
+        } else {
+          const emailSent = await sendEmail(
+            firstName,
+            lastName,
+            email,
+            qrCodeData
+          );
+          if (emailSent) {
+            const logged = await logSignIn(firstName, lastName, email);
+            if (logged) {
+              statusMsg.textContent =
+                "✓ Registration successful! Check your email for your QR code.";
+              statusMsg.className = "success";
+              setTimeout(() => {
+                window.location.href = "index.html";
+              }, 2000);
+            } else {
+              statusMsg.textContent = "✗ Duplicate sign-in detected.";
+              statusMsg.className = "error";
+            }
+          } else {
+            statusMsg.textContent = "✗ Error sending email. Please try again.";
+            statusMsg.className = "error";
+          }
+        }
+      });
+
+      document
+        .getElementById("oneTimeSignIn")
+        .addEventListener("change", function (event) {
+          const submitButton = document.getElementById("submitButton");
+          const icon = '<i class="fas fa-paper-plane icon"></i>';
+          submitButton.innerHTML =
+            icon +
+            (event.target.checked
+              ? "Complete Sign-in"
+              : "Complete Registration");
+        });
+    </script>
+  </body>
+</html>

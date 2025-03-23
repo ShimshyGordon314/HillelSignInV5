@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>QR Code Scanner</title>
+    <!-- Font Awesome -->
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+      rel="stylesheet"
+    />
+    <!-- html5-qrcode library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+
+    <style>
+      /* CSS (same as your original) */
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      }
+      body {
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        min-height: 100vh;
+        padding: 20px;
+        position: relative;
+      }
+      .success-border {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        border: 40px solid #27ae60;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+        z-index: 1000;
+      }
+      .success-border.active {
+        opacity: 1;
+      }
+      .container {
+        max-width: 800px;
+        margin: 0 auto;
+        text-align: center;
+      }
+      h1 {
+        color: #2c3e50;
+        margin-bottom: 25px;
+        text-align: center;
+        font-size: 28px;
+      }
+      #reader {
+        width: 100%;
+        max-width: 800px;
+        height: 400px;
+        margin: 0 auto;
+        border-radius: 15px;
+        overflow: hidden;
+      }
+      #result {
+        margin-top: 20px;
+        padding: 20px;
+        background: white;
+        border-radius: 15px;
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+        display: none;
+      }
+      .registration-link {
+        display: inline-block;
+        margin-top: 20px;
+        padding: 12px 24px;
+        background: #3498db;
+        color: white;
+        text-decoration: none;
+        border-radius: 8px;
+        transition: background 0.3s ease;
+      }
+      .registration-link:hover {
+        background: #2980b9;
+      }
+      .icon {
+        margin-right: 8px;
+      }
+      .button-group {
+        display: flex;
+        justify-content: center;
+        gap: 10px;
+        margin-top: 20px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="success-border"></div>
+    <div class="container">
+      <h1><i class="fas fa-qrcode icon"></i>QR Code Scanner</h1>
+      <div id="reader"></div>
+      <div id="result">
+        <h2>Scanned Result:</h2>
+        <p id="scannedData"></p>
+        <p
+          id="duplicateAlert"
+          style="color: #e74c3c; margin-top: 10px; display: none"
+        >
+          <i class="fas fa-exclamation-circle"></i>
+          This person was already logged in the last 10 seconds
+        </p>
+      </div>
+      <div class="button-group">
+        <a href="register.html" class="registration-link">
+          <i class="fas fa-user-plus icon"></i>First time signing in?
+        </a>
+        <a href="log.html" class="registration-link">
+          <i class="fas fa-clipboard-list icon"></i>View Sign-in Log
+        </a>
+      </div>
+    </div>
+
+    <!-- Firebase integration and app code -->
+    <script type="module">
+      import { logSignInToFirebase } from "./firebase-log.js";
+
+      import { signInAnonymously } from "https://www.gstatic.com/firebasejs/10.11.1/firebase-auth.js";
+      
+      import { auth } from "./firebase-init.js";
+      
+      signInAnonymously(auth)
+        .then(() => {
+          console.log("Signed in anonymously for writing logs.");
+        })
+        .catch((error) => {
+          console.error("Anonymous sign-in failed:", error);
+        });
+
+      let lastScanTime = 0;
+      const SCAN_COOLDOWN = 3000; // 3-second cooldown
+
+      function showSuccessBorder() {
+        const border = document.querySelector(".success-border");
+        border.classList.add("active");
+        setTimeout(() => {
+          border.classList.remove("active");
+        }, 1000);
+      }
+
+      function parseQRData(text) {
+        const nameMatch = text.match(/Name: (.+)\n/);
+        const emailMatch = text.match(/Email: (.+)/);
+        if (nameMatch && emailMatch) {
+          return { name: nameMatch[1], email: emailMatch[1] };
+        }
+        return null;
+      }
+
+      async function onScanSuccess(decodedText, decodedResult) {
+        const currentTime = Date.now();
+        if (currentTime - lastScanTime < SCAN_COOLDOWN) return;
+        lastScanTime = currentTime;
+
+        const resultDiv = document.getElementById("result");
+        const scannedData = document.getElementById("scannedData");
+        const duplicateAlert = document.getElementById("duplicateAlert");
+
+        resultDiv.style.display = "block";
+        scannedData.textContent = decodedText;
+
+        const parsedData = parseQRData(decodedText);
+        if (!parsedData) return;
+
+        const logEntry = {
+          timestamp: Date.now(),
+          name: parsedData.name,
+          email: parsedData.email,
+        };
+
+        const success = await logSignInToFirebase(logEntry);
+        if (success) {
+          showSuccessBorder();
+          duplicateAlert.style.display = "none";
+        } else {
+          duplicateAlert.style.display = "block";
+        }
+      }
+
+      window.onload = function () {
+        const html5QrcodeScanner = new Html5Qrcode("reader");
+        const config = {
+          fps: 10,
+          qrbox: { width: 400, height: 400 },
+          aspectRatio: 16 / 9,
+        };
+        Html5Qrcode.getCameras()
+          .then((devices) => {
+            if (devices && devices.length) {
+              const cameraId =
+                devices.length > 1 ? devices[1].id : devices[0].id;
+              html5QrcodeScanner.start(
+                cameraId,
+                config,
+                onScanSuccess,
+                (error) => {}
+              );
+            }
+          })
+          .catch((err) => {
+            console.error("Error getting cameras", err);
+          });
+      };
+    </script>
+  </body>
+</html>

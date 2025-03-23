@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sign-in Log</title>
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+      rel="stylesheet"
+    />
+    <style>
+      /* General resets and fonts */
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      }
+      body {
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        min-height: 100vh;
+        padding: 20px;
+      }
+      /* Container: use most of the screen width */
+      .container {
+        max-width: 1000px;
+        margin: 0 auto;
+        background: white;
+        padding: 30px;
+        border-radius: 15px;
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+      }
+      /* Top row: header items on one line */
+      .top-row {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        margin-bottom: 10px;
+      }
+      .top-row .title-section {
+        display: flex;
+        align-items: center;
+        flex-grow: 1;
+      }
+      .top-row .title-section h1 {
+        color: #2c3e50;
+        font-size: 28px;
+        margin-right: 10px;
+      }
+      .top-row .title-section img {
+        height: 40px; /* Adjust as needed */
+      }
+      .top-row .download-dropdown {
+        display: flex;
+        align-items: center;
+        margin-right: 10px;
+      }
+      .top-row .download-dropdown label {
+        font-size: 16px;
+        color: #2c3e50;
+        margin-right: 5px;
+      }
+      #download-filter {
+        padding: 8px;
+        font-size: 16px;
+        border-radius: 8px;
+        border: 1px solid #ccc;
+      }
+      .button {
+        padding: 12px 24px;
+        background: #3498db;
+        color: white;
+        text-decoration: none;
+        border-radius: 8px;
+        border: none;
+        cursor: pointer;
+        font-size: 16px;
+        transition: background 0.3s ease;
+        margin-right: 10px;
+      }
+      .button:hover {
+        background: #2980b9;
+      }
+      .button.download {
+        background: #27ae60;
+      }
+      .button.download:hover {
+        background: #219a52;
+      }
+      /* Second row: capacity indicator and download CSV button */
+      .second-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 20px;
+      }
+      #capacity-indicator {
+        font-size: 16px;
+        color: #e67e22;
+      }
+      /* Table styles */
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 20px;
+      }
+      th,
+      td {
+        padding: 12px;
+        text-align: left;
+        border-bottom: 1px solid #e0e0e0;
+      }
+      th {
+        background: #f8f9fa;
+        color: #2c3e50;
+        font-weight: 600;
+      }
+      tr:hover {
+        background: #f8f9fa;
+      }
+      .icon {
+        margin-right: 8px;
+      }
+      .empty-state {
+        text-align: center;
+        padding: 40px;
+        color: #7f8c8d;
+      }
+      h2 {
+        margin-top: 30px;
+        color: #2c3e50;
+      }
+      /* Modal styles for deletion confirmation */
+      #deletion-modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        justify-content: center;
+        align-items: center;
+      }
+      #deletion-modal .modal-content {
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        max-width: 400px;
+        text-align: center;
+      }
+      #deletion-modal button {
+        margin-top: 20px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <!-- Top row: header items -->
+      <div class="top-row">
+        <div class="title-section">
+          <h1><i class="fas fa-clipboard-list icon"></i>Sign-in Log</h1>
+        </div>
+        <div class="download-dropdown">
+          <label for="download-filter">Download logs for:</label>
+          <select id="download-filter">
+            <option value="All">All</option>
+            <option value="Today">Today</option>
+            <option value="This Week">This Week</option>
+            <option value="This Month">This Month</option>
+            <option value="This Year">This Year</option>
+            <option value="Earlier">Earlier</option>
+          </select>
+        </div>
+        <button id="logout-btn" class="button">
+          <i class="fas fa-sign-out-alt icon"></i>Logout
+        </button>
+      </div>
+
+      <!-- Second row: capacity indicator and Download CSV button (placed directly under dropdown) -->
+      <div class="second-row">
+        <div id="capacity-indicator"></div>
+        <button id="download-btn" class="button download">
+          <i class="fas fa-download icon"></i>Download CSV
+        </button>
+      </div>
+
+      <!-- Log display -->
+      <div id="logTable"></div>
+    </div>
+
+    <!-- Deletion confirmation modal with an extra Download Entire Log button -->
+    <div id="deletion-modal">
+      <div class="modal-content">
+        <p>
+          In order to ensure that the storage capacity of the database is not
+          exceeded, the oldest log records will be deleted.
+        </p>
+        <button id="confirm-deletion" class="button">Okay</button>
+        <button id="download-all-btn" class="button download">
+          <i class="fas fa-download icon"></i>Download Entire Log
+        </button>
+      </div>
+    </div>
+
+    <script type="module">
+      import {
+        collection,
+        getDocs,
+        query,
+        orderBy,
+        getCountFromServer,
+        limit,
+        writeBatch,
+        doc,
+      } from "https://www.gstatic.com/firebasejs/10.11.1/firebase-firestore.js";
+      import { db } from "./firebase-init.js";
+      import {
+        signOut,
+        onAuthStateChanged,
+      } from "https://www.gstatic.com/firebasejs/10.11.1/firebase-auth.js";
+      import { auth } from "./firebase-init.js";
+      import { requireAuth } from "./auth.js"
+
+      const DELETION_THRESHOLD = 1500000; // When capacity is reached
+      const DELETE_COUNT = 500000; // Number of documents to delete
+      
+      requireAuth();
+
+      // Logout function
+      document
+        .getElementById("logout-btn")
+        .addEventListener("click", async () => {
+          try {
+            await signOut(auth);
+            window.location.href = "index.html";
+          } catch (error) {
+            console.error("Error signing out:", error);
+          }
+        });
+
+      // Format functions to split date and time into separate columns
+      function formatDatePart(timestamp) {
+        const date = new Date(timestamp);
+        const yyyy = date.getFullYear();
+        const mm = String(date.getMonth() + 1).padStart(2, "0");
+        const dd = String(date.getDate()).padStart(2, "0");
+        return `${yyyy}-${mm}-${dd}`;
+      }
+
+      function formatTimePart(timestamp) {
+        const date = new Date(timestamp);
+        const hh = String(date.getHours()).padStart(2, "0");
+        const min = String(date.getMinutes()).padStart(2, "0");
+        const ss = String(date.getSeconds()).padStart(2, "0");
+        return `${hh}:${min}:${ss}`;
+      }
+
+      // Group logs into categories for display
+      function groupLogs(logData) {
+        const now = new Date();
+        const todayStart = new Date(
+          now.getFullYear(),
+          now.getMonth(),
+          now.getDate()
+        );
+        const tomorrowStart = new Date(
+          now.getFullYear(),
+          now.getMonth(),
+          now.getDate() + 1
+        );
+        const weekStart = new Date(now);
+        weekStart.setDate(now.getDate() - now.getDay());
+        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        const yearStart = new Date(now.getFullYear(), 0, 1);
+
+        const groups = {
+          Today: [],
+          "This Week": [],
+          "This Month": [],
+          "This Year": [],
+          Earlier: [],
+        };
+
+        logData.forEach((entry) => {
+          const entryDate = new Date(entry.timestamp);
+          if (entryDate >= todayStart && entryDate < tomorrowStart) {
+            groups["Today"].push(entry);
+          } else if (entryDate >= weekStart && entryDate < todayStart) {
+            groups["This Week"].push(entry);
+          } else if (entryDate >= monthStart && entryDate < weekStart) {
+            groups["This Month"].push(entry);
+          } else if (entryDate >= yearStart && entryDate < monthStart) {
+            groups["This Year"].push(entry);
+          } else {
+            groups["Earlier"].push(entry);
+          }
+        });
+        return groups;
+      }
+
+      // Update log display with Date and Time columns
+      async function updateTable() {
+        const tableDiv = document.getElementById("logTable");
+        try {
+          const signInCollection = collection(db, "signIns");
+          const q = query(signInCollection, orderBy("timestamp", "desc"));
+          const querySnapshot = await getDocs(q);
+          let logData = [];
+          querySnapshot.forEach((doc) => {
+            logData.push(doc.data());
+          });
+
+          if (logData.length === 0) {
+            tableDiv.innerHTML = `
+              <div class="empty-state">
+                <i class="fas fa-clipboard icon"></i>
+                <p>No sign-ins recorded yet</p>
+              </div>
+            `;
+            return;
+          }
+
+          const groups = groupLogs(logData);
+          let html = "";
+          for (const group in groups) {
+            if (groups[group].length > 0) {
+              html += `<h2>${group}</h2>`;
+              html += `
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>Time</th>
+                      <th>Name</th>
+                      <th>Email</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+              `;
+              groups[group].forEach((entry) => {
+                html += `
+                  <tr>
+                    <td>${formatDatePart(entry.timestamp)}</td>
+                    <td>${formatTimePart(entry.timestamp)}</td>
+                    <td>${entry.name}</td>
+                    <td>${entry.email}</td>
+                  </tr>
+                `;
+              });
+              html += `</tbody></table>`;
+            }
+          }
+          tableDiv.innerHTML = html;
+          // Check capacity after updating table
+          checkLogCapacity();
+        } catch (error) {
+          console.error("Error fetching logs:", error);
+          tableDiv.innerHTML = `<p>Error loading sign-in logs. Please try again later.</p>`;
+        }
+      }
+
+      // Check log capacity and update indicator; show modal if threshold reached
+      async function checkLogCapacity() {
+        try {
+          const signInCollection = collection(db, "signIns");
+          const countSnapshot = await getCountFromServer(
+            query(signInCollection)
+          );
+          const count = countSnapshot.data().count;
+          const capacityIndicator =
+            document.getElementById("capacity-indicator");
+          const percent = Math.min(
+            (count / DELETION_THRESHOLD) * 100,
+            100
+          ).toFixed(1);
+          capacityIndicator.innerHTML = `Log capacity: ${percent}% reached (${count} of ${DELETION_THRESHOLD} records)`;
+          if (count >= DELETION_THRESHOLD) {
+            showDeletionModal();
+          }
+        } catch (error) {
+          console.error("Error checking log capacity:", error);
+        }
+      }
+
+      // Show deletion confirmation modal
+      function showDeletionModal() {
+        document.getElementById("deletion-modal").style.display = "flex";
+      }
+      // Hide deletion modal
+      function hideDeletionModal() {
+        document.getElementById("deletion-modal").style.display = "none";
+      }
+
+      // Delete the oldest DELETE_COUNT documents in batches of 500
+      async function deleteOldLogs() {
+        try {
+          const signInCollection = collection(db, "signIns");
+          let remaining = DELETE_COUNT;
+          while (remaining > 0) {
+            const q = query(
+              signInCollection,
+              orderBy("timestamp", "asc"),
+              limit(500)
+            );
+            const snapshot = await getDocs(q);
+            if (snapshot.empty) break;
+            const batch = writeBatch(db);
+            snapshot.forEach((docSnap) => {
+              batch.delete(docSnap.ref);
+            });
+            await batch.commit();
+            remaining -= snapshot.size;
+          }
+          updateTable();
+        } catch (error) {
+          console.error("Error deleting old logs:", error);
+        }
+      }
+
+      // Filter logs for CSV download based on selected period
+      function filterLogsForDownload(logData, filterOption) {
+        const now = new Date();
+        const todayStart = new Date(
+          now.getFullYear(),
+          now.getMonth(),
+          now.getDate()
+        );
+        const tomorrowStart = new Date(
+          now.getFullYear(),
+          now.getMonth(),
+          now.getDate() + 1
+        );
+        const weekStart = new Date(now);
+        weekStart.setDate(now.getDate() - now.getDay());
+        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        const yearStart = new Date(now.getFullYear(), 0, 1);
+
+        return logData.filter((entry) => {
+          const entryDate = new Date(entry.timestamp);
+          switch (filterOption) {
+            case "Today":
+              return entryDate >= todayStart && entryDate < tomorrowStart;
+            case "This Week":
+              return entryDate >= weekStart && entryDate < todayStart;
+            case "This Month":
+              return entryDate >= monthStart && entryDate < weekStart;
+            case "This Year":
+              return entryDate >= yearStart && entryDate < monthStart;
+            case "Earlier":
+              return entryDate < yearStart;
+            default:
+              return true;
+          }
+        });
+      }
+
+      // Download CSV based on filter selection with separate Date and Time columns
+      async function downloadLog() {
+        try {
+          const signInCollection = collection(db, "signIns");
+          const q = query(signInCollection, orderBy("timestamp", "desc"));
+          const querySnapshot = await getDocs(q);
+          let logData = [];
+          querySnapshot.forEach((doc) => {
+            logData.push(doc.data());
+          });
+
+          if (logData.length === 0) {
+            alert("No sign-ins to download.");
+            return;
+          }
+
+          const filterOption = document.getElementById("download-filter").value;
+          let filteredData =
+            filterOption === "All"
+              ? logData
+              : filterLogsForDownload(logData, filterOption);
+
+          if (filteredData.length === 0) {
+            alert(`No sign-ins for "${filterOption}".`);
+            return;
+          }
+
+          const csvContent = [
+            ["Date", "Time", "Name", "Email"],
+            ...filteredData.map((entry) => [
+              formatDatePart(entry.timestamp),
+              formatTimePart(entry.timestamp),
+              `"${entry.name}"`,
+              `"${entry.email}"`,
+            ]),
+          ]
+            .map((row) => row.join(","))
+            .join("\n");
+
+          const blob = new Blob([csvContent], { type: "text/csv" });
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `sign-in-log-${filterOption}-${
+            new Date().toISOString().split("T")[0]
+          }.csv`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          window.URL.revokeObjectURL(url);
+        } catch (error) {
+          console.error("Error downloading log:", error);
+        }
+      }
+
+      // Attach event listener for the download CSV button
+      document
+        .getElementById("download-btn")
+        .addEventListener("click", downloadLog);
+
+      // Attach event listener for deletion modal confirmation button
+      document
+        .getElementById("confirm-deletion")
+        .addEventListener("click", async () => {
+          await deleteOldLogs();
+          hideDeletionModal();
+        });
+
+      // Attach event listener for modal's Download Entire Log button
+      document
+        .getElementById("download-all-btn")
+        .addEventListener("click", async () => {
+          // Download the entire log without filtering
+          document.getElementById("download-filter").value = "All";
+          downloadLog();
+        });
+
+      updateTable();
+    </script>
+  </body>
+</html>

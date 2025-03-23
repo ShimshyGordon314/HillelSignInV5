@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Your QR Code</title>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    body { background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); min-height: 100vh; display: flex; justify-content: center; align-items: center; padding: 20px; }
+    .container { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 10px 20px rgba(0,0,0,0.1); width: 100%; max-width: 500px; text-align: center; }
+    h1 { color: #2c3e50; margin-bottom: 25px; font-size: 28px; }
+    #qrCanvas { margin: 20px auto; padding: 20px; background: white; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+    .download-btn { display: inline-block; padding: 12px 24px; background: #27ae60; color: white; text-decoration: none; border-radius: 8px; margin-top: 20px; transition: background 0.3s ease; }
+    .download-btn:hover { background: #219a52; }
+    .icon { margin-right: 8px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Your QR Code</h1>
+    <canvas id="qrCanvas"></canvas>
+    <a href="#" id="downloadBtn" class="download-btn">
+      <i class="fas fa-download icon"></i>Download QR Code
+    </a>
+  </div>
+
+  <script>
+    window.onload = async function() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const data = urlParams.get('data');
+      if (data) {
+        const canvas = document.getElementById('qrCanvas');
+        await QRCode.toCanvas(canvas, decodeURIComponent(data), { 
+          width: 256,
+          margin: 2,
+          color: { dark: '#2c3e50', light: '#ffffff' }
+        });
+        const downloadBtn = document.getElementById('downloadBtn');
+        downloadBtn.addEventListener('click', function(e) {
+          e.preventDefault();
+          const link = document.createElement('a');
+          link.download = 'qr-code.png';
+          link.href = canvas.toDataURL('image/png');
+          link.click();
+        });
+      }
+    };
+  </script>
+</body>
+</html>
