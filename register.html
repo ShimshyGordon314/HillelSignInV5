@@ -210,7 +210,7 @@
       }
 
       async function sendEmail(firstName, lastName, email, qrCodeData) {
-      const sharedUrl = `https://ShimshyGordon314.github.io/HillelSignIn/display.html?data=${encodeURIComponent(qrCodeData)}`;
+      const sharedUrl = `https://ShimshyGordon314.github.io/HillelSignInV5/display.html?data=${encodeURIComponent(qrCodeData)}`;
         try {
           await emailjs.send("service_yv3ovn3", "template_o6dzuze", {
             firstName,
